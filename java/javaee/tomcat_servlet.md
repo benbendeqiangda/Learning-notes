@@ -1,3 +1,5 @@
+servlet是符合javaee规范的服务器所操作的单位，每一个servlet方法对应一个网址的访问
+
 ###### servlet生命周期
 
 1. 初始化阶段
@@ -32,7 +34,7 @@
 
 - request：HttpServletRequest，一次请求访问的多个资源(转发)
 - session：HttpSession，一次会话的多个请求间
-- application：HttpSession，所有用户间共享数据
+- application：ServletContext，所有用户间共享数据
 
 ### Tomcat
 
@@ -200,9 +202,9 @@
 
 1. 请求行
 
-    | 请求方式 | 请求url     | 请求协议/版本 |
-    | -------- | ----------- | ------------- |
-    | GET      | /login.html | HTTP/1.1      |
+    | 请求方式 | 请求的url | 请求协议/版本 |
+    | -------- | --------- | ------------- |
+    | GET      |           | HTTP/1.1      |
 
     HTTP协议有7中请求方式，常用的有2种
     * GET：
@@ -417,11 +419,11 @@ Date: Wed, 06 Jun 2018 07:08:42 GMT
 ```
 
 		* 重定向的特点:redirect
-			1. 地址栏发生变化
+			1. 地址栏发生变化（由当前的servlet返回一个网址和302重定向指令，由浏览器重新访问新的网址）
 			2. 重定向可以访问其他站点(服务器)的资源
 			3. 重定向是两次请求。不能使用request对象来共享数据
 		* 转发的特点：forward
-			1. 转发地址栏路径不变
+			1. 转发地址栏路径不变（由当前的servletA去请求当前项目下的另一个servletB，接受servletB的结果由servletA并返回）
 			2. 转发只能访问当前服务器下的资源
 			3. 转发是一次请求，可以使用request对象来共享数据
 		* 路径写法：
@@ -446,7 +448,7 @@ Date: Wed, 06 Jun 2018 07:08:42 GMT
 ### ServletContext对象
 
 ```
-1. 概念：代表整个web应用，可以和程序的容器(服务器)来通信
+1. （使得当前项目下不同路径上的servlet程序可以进行数据的共享）
 2. 获取：
 	1. 通过request对象获取
 		request.getServletContext();

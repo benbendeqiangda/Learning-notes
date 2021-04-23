@@ -6,9 +6,31 @@ activiti是一个业务流程管理引擎，会沿着设计者设计好的流程
 
 #### bpmn
 
-Sequence：连接是并行的，所有的连接都会流到下一个目标
+Sequence：（After an element is visited during process execution, **all outgoing sequence flow will be followed**. ）
 
+exclusive gateway：在使用独占网关时，只选择一个序列流。如果多序列流具有计算结果为 true 的条件，则为 XML 中定义的第一个条件(并且只有那个条件!)被选中来继续这个过程。如果无法选择序列流，则将引发异常。
 
+usertask：如果没有给出给定文本字符串是用户还是组的具体信息，则引擎默认为 group。
+
+Receive Task：当流程执行到达接收任务时，流程状态将被持久性存储。这意味着流程将保持这种等待状态，直到引擎接收到特定的消息，这将触发接收任务之后流程的继续。
+
+要继续当前正在接收任务上等待的流程实例，必须使用到达接收任务的执行的 id 调用 runtimeService.signal (executionId)。下面的代码片段展示了这在实践中是如何工作的:
+
+```java
+ProcessInstance pi = runtimeService.startProcessInstanceByKey("receiveTask");
+Execution execution = runtimeService.createExecutionQuery()
+  .processInstanceId(pi.getId())
+  .activityId("waitState")
+  .singleResult();
+assertNotNull(execution);
+
+runtimeService.signal(execution.getId());
+```
+
+```
+List<Task> tasks = taskService.createTaskQuery().taskAssignee("kermit").list();
+List<Task> tasks = taskService.createTaskQuery().taskCandidateUser("kermit");
+```
 
 #### activiti的7大马车
 
