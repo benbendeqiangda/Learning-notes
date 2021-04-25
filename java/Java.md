@@ -427,6 +427,12 @@ java9的：变量只有public static final，方法（实例方法等同于defau
 
   - 程序匹配catch块时由上到下匹配，一旦执行其中一个catch块就不会执行其他catch块了
 
+  - 可以用`|`分割多种异常，同时捕获他们
+
+    `catch (IOException | NumberFormatException e)`
+
+    捕获多种类型的异常时，异常变量有隐式的 final 修饰，因此程序不能对异常变量重新赋值。
+
 - finally块
 
   - 除非在try块，catch块中直接使用了退出虚拟机的方法。否则，无论在 try 块，catch块中执怎样的代码， 出现怎样的情况，finall块总会被执行
@@ -441,11 +447,11 @@ java9的：变量只有public static final，方法（实例方法等同于defau
 
   每次只能抛出一个异常对象
 
-  在catch中抛出一个异常对原有异常进行包装时，可以使用throwable对象的initCause(原有异常) 方法保存原有异常，使用这种包装技术，可以抛出系统的高级异常，又不会丢失原始异常的 细节。
+  在catch中抛出一个异常对原有异常进行包装时，可以使用throwable对象的initCause(原有异常) 方法保存原有异常，使用这种包装技术，可以抛出系统的高级异常，又不会丢失原始异常的细节。
 
 - throws：throws只能用在方法签名中（跟在方法签名之后），表示如果出现异常自己不处理，交给调用者处理
 
-  可以抛出多个异常，用，号分割
+  可以抛出多个异常，用`，`号分割
 
 ###### 异常分类 ######
 
@@ -459,14 +465,25 @@ java已经对异常对象做了分类，异常类之间有着明确的继承关�
 
 <img src="Java.assets/image-20200604152011620.png" alt="image-20200604152011620" style="zoom:80%;" />
 
-###### 多异常捕获 ######
+###### 断言
 
-- 捕获多种类型的异常时，多种异常类型之间用竖线 | 隔开
-- 捕获多种类型的异常时，异常变量有隐式的 final 修饰，因此程序不能对异常变量重新赋值。
+```
+public static void main(String[] args) {
+    double x = Math.abs(-123.45);
+    assert x >= 0;
+    System.out.println(x);
+}
+```
 
-###### 自动关闭资源的try语句 ######
+- 语句`assert x >= 0;`即为断言，断言条件`x >= 0`预期为`true`。如果计算结果为`false`，则断言失败，抛出`AssertionError`。
+- 使用`assert`语句时，还可以添加一个可选的断言消息：`assert x >= 0 : "x must >= 0";`
+- 这样，断言失败的时候，`AssertionError`会带上消息`x must >= 0`，更加便于调试。
 
-
+- Java断言的特点是：断言失败时会抛出`AssertionError`，导致程序结束退出。
+- JVM默认关闭断言指令，即遇到`assert`语句就自动忽略了，不执行。
+- 要执行`assert`语句，必须给Java虚拟机传递`-enableassertions`（可简写为`-ea`）参数启用断言。`java -ea Main.java`
+- 还可以有选择地对特定地类启用断言，命令行参数是：`-ea:com.itranswarp.sample.Main`，表示只对`com.itranswarp.sample.Main`这个类启用断言。
+- 或者对特定地包启用断言，命令行参数是：`-ea:com.itranswarp.sample...`（注意结尾有3个`.`），表示对`com.itranswarp.sample`这个包启动断言。
 
 ##### 泛型 #####
 

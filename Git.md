@@ -162,7 +162,7 @@ $ git check-ignore -v App.class
 
   git clone顾名思义就是将其他仓库克隆到本地，**包括被clone仓库的版本变化**。下载远程仓库，本地无需**git init**，直接git clone url。执行git clone等待clone结束，目录下自动会有一个.git的隐藏文件夹，因为是clone来的，所以.git文件夹里存放着与远程仓库一模一样的git log记录。clone操作是一个从无到有的**克隆**操作，不需要`git init`初始化。
 
-- 建立本地分支与远程分支关系：git branch --set-upstream origin/branch-name branch-name 
+- 建立本地分支与远程分支关系：git branch --set-upstream-to origin/branch-name branch-name 
 
   如果远程还没有创建origin/branch-name，直接写origin主机名即可，远程会自动创建相应的分支（或者直接git push 远程主机名 本地分支名）
 
