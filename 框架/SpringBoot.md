@@ -73,8 +73,6 @@ public class HttpProperties
 
 #### 视图解析器
 
-https://blog.csdn.net/yingxiake/article/details/51288727
-
 spring boot 在springmvc的视图解析器方面就默认集成了ContentNegotiatingViewResolver和BeanNameViewResolver，在视图引擎上就已经集成自动配置的模版引擎，如下：
 1. FreeMarker
 2. Groovy
@@ -89,3 +87,4 @@ JSP技术spring boot 官方是不推荐的，原因有三：
 
 而其他的模版引擎spring boot 都支持，并默认会到classpath的templates里面查找模版引擎
 
+如果想要使用jsp，需要配置springmvc中的属性，并且只能在打包成war包的情况下被解析https://blog.csdn.net/yingxiake/article/details/51288727

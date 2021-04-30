@@ -4,16 +4,21 @@
 | 共享地址空间      | 独立的地址空间                 |
 | 切换开销小        | 切换开销大（需要切换上下文）   |
 
+###### notify
+
+notify只是唤醒在waitset中的线程，并没有释放锁的功能
+
 ###### join
 
 ```java
 public final synchronized void join(long millis)
 ｛
-    while (isAlive()) {        //调用join方法线程是运行时状态
+    while (isAlive()) {      
           wait(0);             //进入等待
      }
 ｝
 wait(0)是什么意思呢，其实wait()方法就是调用了wait(0)方法实现的，wait(0)就是让其一直等待。
+在主线程中调用了thread1的join方法，这个方法是一个同步方法，所以主线程获得了这个对象的锁，然后判断thread1是否存活，如果存活就加入到thread1的waitset当中，等待唤醒（线程的run方法执行结束之后会唤醒所有等待在此线程上的线程）
 ```
 
 ###### double-checked ######
@@ -85,14 +90,9 @@ CAS操作包含三个操作数——内存位置（V）、预期原值（A）和
 
 ###### ThreadLocal ######
 
+每个线程都拥有一个类似于hashmap的threadlocalmap对象，其中存放着以threadlocal对象为key，各个线程私有的threadlocal值为val的key-val结构。
 
-
-###### 减少线程切换开销 ######
-
-- 无锁并发：通过某种策略（比如hash分隔任务）使得每个线程不共享资源，避免锁的使用。
-- CAS：是比锁更轻量级的线程同步方式
-- 使用最小线程：避免创建不需要的线程，避免线程一直处于等待状态
-- 协程：单线程实现多任务调度，单线程维持多任务切换
+[ThreadLocal的内存泄露？什么原因？如何避免？ - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/102571059)
 
 ###### BlockingQueue ######
 
@@ -259,12 +259,6 @@ ThreadGroup tg=new ThreadGroup("the name of 线程组");
 
 - 继承Thread类并重写run的方法
 
-  优点
-
-  方便传参，你可以在子类里面添加成员变量，通过set方法设置参数或者通过构造函数进行传递，
-
-  在run（）方法内获取当前线程直接使用this就可以了，无须使用Thread.currentThread（）方法；
-
   缺点
 
   Java不支持多继承，如果继承了Thread类，那么就不能再继承其他类。
@@ -276,10 +270,6 @@ ThreadGroup tg=new ThreadGroup("the name of 线程组");
   优点
 
   改掉了Thread的缺点
-
-  缺点
-
-  只能使用主线程里面被声明为final的变量
 
 - 实现Callable接口（有返回值的runnable），使用FutureTask类（相当于Thread）
 
@@ -318,8 +308,6 @@ ThreadGroup tg=new ThreadGroup("the name of 线程组");
 
 **synchronized关键字是基于对象的**，Java中的每一个对象都可以作为一个锁，锁住的也仅仅是对象。
 
-synchronize以线程对象作为关键字的时候，在线程运行结束的时候会notify在线程上等待的其他线程
-
 synchronized是可重入的
 
 多个线程在请求锁的阻塞过程中无法被中断
@@ -340,10 +328,9 @@ public static synchronized void classLock() {
     // code
 }
 
-// 关键字在代码块上，锁为括号里面的对象，如果是对象是this相当于第一种写法，如果对象是class对象相当于第二种写法，
+// 关键字在代码块上，锁为括号里面的对象，
 public void blockLock() {
-    Object o = new Object();
-    synchronized (o) {
+    synchronized (o) {//当o为一个线程对象时，在o线程运行结束的时候会自动notify wait在o线程上的其他线程
         // code
     }
 }。
@@ -462,8 +449,8 @@ wait被notify唤醒之后，wait上面的代码都不会再运行（如果是for
   等待方： 
   synchronized(obj)
   { 
-      while(条件不满足) //wait之前的代码不会被执行，所以要用无限
-      {				//循环不断校验 
+      while(条件不满足) //wait之前的代码不会被执行，所以要用无限循环不断校验 
+      {				//如果obj是一个线程对象，则线程对象的run方法执行结束后也会自动notify在obj上的wait的所有线程
           obj.wait(); 
       }
       消费; 
@@ -486,14 +473,23 @@ wait被notify唤醒之后，wait上面的代码都不会再运行（如果是for
 
 ###### LockSupport ######
 
+每个线程都有一个许可（许可只能是0或1）_counter，许可被park消耗，被unpark补充。
+
 LockSupport锁住的是线程，synchronized 锁住的是对象
 
 LockSupport 定义了一组公共静态方法
 
 - park
+  
+  ```
+  park方法会调用Atomic::xchg方法，这个方法会原子性的将_counter赋值为0，并返回赋值前的值。如果调用park方法前，_counter大于0，则说明之前调用过unpark方法，所以park方法直接返回，否则则阻塞自己。
+  ```
+  
   - park 对于中断只会设置中断标志位，不会抛出 InterruptedException。
-  - LockSupport 是可不重入的，如果一个线程连续 2 次调用 LockSupport.park()，那么该线程一定会一直阻塞下去 
+  - 如果一个线程连续 2 次调用 LockSupport.park()，那么该线程一定会一直阻塞下去，因为即使_counter最大只能是1，只能提供一次消耗，第二次消耗发现没有则会阻塞自己。
+  
 - unpark
+  
   - unpark 函数可以先于 park 调用。比如线程 B 调用 unpark 函数，给线程 A 发了一个“许可”， 那么当线程 A 调用 park 时，它发现已经有“许可”了，那么它会马上再继续运行。
 
 ###### 锁的优化 ######
@@ -586,7 +582,7 @@ ThreadPoolExecutor通常使用工厂类Executors来创建。
 
 Executors可以创建3种类型的ThreadPoolExecutor：
 
-- SingleThreadExecutor（一个核心线程，无额外线程，无界任务队列）
+- SingleThreadExecutor（一个核心线程，无额外线程，无界任务队列）	
 - FixedThreadPool（多个核心线程，无额外线程，无界任务队列）
 - CachedThreadPool（全是60秒闲置死亡的额外线程，没有任务队列）
 

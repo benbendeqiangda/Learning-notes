@@ -67,7 +67,7 @@ Java自带序列化：使用非常简单，但在网络传输时很少使用，�
 
   每个Channel都会关联一个特定的EventLoop
 
-- EventLoopGroup：封装工作单元eventloop，一个channel对应一个eventloop，eventloop又与selector相关
+- EventLoopGroup：封装多个工作单元eventloop，一个channel对应一个eventloop，eventloop又与selector相关
 
   我们可以简单地认为，一个NioEventLoop对象其实就是和一个特定的线程进行绑定，并且在NioEventLoop生命周期内，其绑定的线程都不会再改变。
 
