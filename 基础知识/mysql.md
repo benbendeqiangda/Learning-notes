@@ -86,7 +86,7 @@ CREATE <索引名> ON <表名> (<列名> [<长度>] [ ASC | DESC])
 
 - LIMIT 3，5：从第三个开始取，取5个
 
-  分页limit优化：核心思想就是获取offset的id
+  分页limit优化：核心思想就是（[少做无用功](https://blog.csdn.net/iteye_16459/article/details/82475176)），可以获取offset的id
 
   先获取到offset的id后，再直接使用limit size来获取数据（id列要建立索引，一般使用主键覆盖索引，id的增长应与分页数对应）
 
@@ -709,6 +709,10 @@ select count（english） from student；
      -- 普通内连接
      SELECT * FROM emp t1,dept t2 WHERE t1.`dept_id` = t2.`id` AND t1.`join_date` >  '2011-11-11'
   ```
+
+##### 查询顺序
+
+[sql查询顺序](https://blog.csdn.net/u014044812/article/details/51004754)
 
 #### 并发控制 ####
 

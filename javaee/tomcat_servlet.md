@@ -43,6 +43,7 @@ servlet是符合javaee规范的服务器所操作的单位，每一个servlet方
 
 * java项目的目录结构：
     -- 项目的根目录
+    	-- html和js，css等资源
     	-- WEB-INF目录：
     		-- web.xml：web项目的核心配置文件
     		-- classes目录：放置字节码文件的目录

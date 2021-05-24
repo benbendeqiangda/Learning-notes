@@ -324,6 +324,13 @@ sql标签和include标签
         </if>
     </where>
 </select>
+<!--
+test的属性值是一个符合OGNL要求的判断表达式，表达式的结果可以是true或false。除此之外，所有的非0值都为true，只有0为false。为了方便理解，在表达式中，建议只用true和false作为结果
+
+判断条件properties != null或properties == null 适用于任何类型的字段，用于判断属性值是否为空
+
+判断条件properties != ''或properties == ''只适用与string类型的字段，用于判断是否为空字符串
+-->
 ```
 
 ##### in：foreach标签 #####
