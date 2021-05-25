@@ -1,5 +1,15 @@
 两次相同的程序执行没有任何联系，因为程序一旦结束，则jvm也结束，jvm所占的存储释放，下一次运行时的jvm重新申请存储，和上一次的存储没有关系
 
+###### 反射
+
+[Java中反射机制详解](https://www.cnblogs.com/whgk/p/6122036.html)
+
+###### object
+
+有哪些方法
+
+- wait，notify，tostring，hashcode，equal，getclass
+
 ###### String
 
 - 都是final类，不允许继承；
@@ -185,6 +195,36 @@ List判断两个集合相等的标准是两个元素的equal()方法比较相等
 
 Properties是Hashtable的子类，Properities类中的key和value都是String类型的
 
+hashmap1.7和1.8
+
+- 扩容时计算元素位置的方法变了
+
+  1.7是直接与数组长度-1想&，1.8变成下面的
+
+- 计算hashcode的方法变了
+
+  1.7
+
+  ```
+          h ^= (h >>> 20) ^ (h >>> 12);
+          return h ^ (h >>> 7) ^ (h >>> 4);
+  ```
+
+  1.8 高 16 位异或低 16 位
+
+###### hashmap ######
+
+说的都是1.8
+
+- java hashmap jdk1.8 中 hashmap 重计算 hashcode 方法改动： 高 16 位异或低 16 位
+- 当 length 总是 2 的n 次方时， h & (length - 1)	等价于hash 对length 取模（2的n次方-1之后后面的位数全为1） ， 但是&比%具有更高的效率；
+- java8  中对 hashmap 扩容不是重新计算所有元素在数组的位置，而是我们使用的是 2 次幂的扩展(指长度扩为原来 2  倍)，所以，元素的位置要么是在原位置，要么只需要看看原来的 hash 值新增的那个 bit 是 1 还是 0 就好了，是 0 的话索引没变，是 1 的话索引变成“原索引+原来的容量”。
+- HashMap 是数组+链表+红黑树（JDK1.8 增加了红黑树部分，初始大小16，之后每次扩充，容量变为原来的 2 倍），当链表长度>=8 时转化为红黑树（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）
+- 装载因子是0.75的时候，空间利用率比较高，而且避免了相当多的Hash冲突，使得底层的链表或者是红黑树的高度比较低，提升了空间效率。
+- hashmap不同步，key和value都可以为null，hashtable同步，key和value都不能为null
+- ConcurrentHashMap仅仅锁定map的某个部分，而Hashtable则会锁定整个map。
+- LinkedHashMap是HashMap的子类，LinkedHashMap中的Entry增加了两个指针 before 和  after，它们分别用于维护双向链接列表。
+
 ![image-20200604095944613](Java.assets/image-20200604095944613.png)
 
 ![image-20200604100119652](Java.assets/image-20200604100119652.png)
@@ -195,44 +235,7 @@ Properties是Hashtable的子类，Properities类中的key和value都是String类
 
 ##### concurrent #####
 
-线程安全集合类可以分为三大类：
-
-- 遗留的线程安全集合：Hashtable ， Vector
-
-- 使用 Collections 装饰的线程安全集合，如：
-
-  - Collections.synchronizedCollection
-  - Collections.synchronizedList
-  - Collections.synchronizedMap
-  - Collections.synchronizedSet
-  - Collections.synchronizedNavigableMap
-  - Collections.synchronizedNavigableSet
-  - Collections.synchronizedSortedMap
-  - Collections.synchronizedSortedSet
-
-- java.util.concurrent.*
-
-  java.util.concurrent.* 下的线程安全集合类，可以发现它们有规律，里面包含三类关键词：Blocking、CopyOnWrite、Concurrent
-  Blocking 大部分实现基于锁，并提供用来阻塞的方法
-  CopyOnWrite 之类容器修改开销相对较重
-  Concurrent 类型的容器内部很多操作使用 cas 优化，一般可以提供较高吞吐量，存在弱一致性问题
-  
-
-###### CopyOnWriteArrayList ######
-
-CopyOnWrite容器即写时复制的容器。通俗的理解是当我们往一个容器添加元素的时候，不直接往当前容器添加，而是先将当前容器进行Copy，复制出一个新的容器，然后新的容器里添加元素，添加完元素之后，再将原容器的引用指向新的容器。这样做的好处是我们可以对CopyOnWrite容器进行并发的读，而不需要加锁（在添加的时候是需要加锁的），因为当前容器不会添加任何元素。所以CopyOnWrite容器也是一种读写分离的思想，读和写不同的容器。
-
-CopyOnWrite并发容器用于读多写少的并发场景。比如白名单，黑名单，商品类目的访问和更新场景
-
-注意事项
-
--  减少扩容开销。根据实际需要，初始化CopyOnWriteMap的大小，避免写时CopyOnWriteMap扩容的开销。
--  使用批量添加。因为每次添加，容器每次都会进行复制，所以减少添加次数，可以减少容器的复制次数。如使用上面代码里的addBlackList方法。
-
-问题
-
-- 内存占用问题。
-- 数据一致性问题。CopyOnWrite容器只能保证数据的最终一致性，不能保证数据的实时一致性。所以如果你希望写入的的数据，马上能读到，请不要使用CopyOnWrite容器。
+- 在多线程笔记里
 
 #### java语法 ####
 

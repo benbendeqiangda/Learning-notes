@@ -94,9 +94,70 @@ CAS操作包含三个操作数——内存位置（V）、预期原值（A）和
 
 [ThreadLocal的内存泄露？什么原因？如何避免？ - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/102571059)
 
-###### BlockingQueue ######
+ThreadLocal自身并不储存值，而是作为一个key来让线程从ThreadLocalMap中（每个线程拥有一个ThreadLocalMap，是一个类似于HashMap的内部类，key是弱引用，value是强引用）获取value。
 
+ThreadLocal的get，set等方法先拿到当前的线程对象，然后拿到对应的ThreadLocalMap，从而操作每个线程私有的ThreadLocal对象
 
+```java
+public void set(T value) 
+{
+
+        // 得到当前线程对象
+        Thread t = Thread.currentThread();
+
+        // 这里获取ThreadLocalMap
+        ThreadLocalMap map = getMap(t);
+
+        // 如果map存在，则将当前线程对象t作为key，要存储的对象作为value存到map里面去
+        if (map != null)
+            map.set(this, value);
+        else
+            createMap(t, value);
+}
+ThreadLocalMap getMap(Thread t) 
+{
+        return t.threadLocals;
+}
+```
+
+内存泄露问题：ThreadLocalMap中的key是弱引用，所以垃圾回收时如果外部没有强引用来引用它，key被回收。但是，value不会被回收。若当前线程一直不结束，value不会被回收。ThreadLocalMap类会在每次get()/set()ThreadLocalMap中的值的时候，会自动清理key为null的value（通过remove()可以手动清理key为null的value）。如此一来，value也能被回收了。
+
+既然对key使用弱引用，能使key自动回收，那为什么不对value使用弱引用？答案显而易见，假设往ThreadLocalMap里存了一个value，gc过后value便消失了。
+
+##### AQS #####
+
+###### 内部成员
+
+- 用 state 属性来表示资源的状态（分独占模式和共享模式），子类需要定义如何维护这个状态，控制如何获取
+  锁和释放锁
+  - getState - 获取 state 状态
+  - setState - 设置 state 状态
+  - compareAndSetState - cas 机制设置 state 状态
+- 提供了基于 FIFO 的等待队列，类似于 Monitor 的 EntryList（竞争资源失败的线程排队时存放的容器）
+- 条件变量（condition）来实现等待、唤醒机制，支持多个条件变量，类似于 Monitor 的 WaitSet（wait方法）
+
+###### 作用
+
+[使用aqs自定义同步器](https://www.cnblogs.com/wyq1995/p/12256550.html)
+
+- aqs用 state 属性来表示资源的状态，子类只需要管理资源的获取和释放，而获取资源失败时入队的操作和释放资源唤醒的操作由aqs自动完成
+- 子类管理资源主要实现这样一些方法（默认抛出 UnsupportedOperationException）
+  - tryAcquire（获取资源失败时自动入队）
+  - tryRelease（释放资源唤醒）
+  - tryAcquireShared
+  - tryReleaseShared
+  - isHeldExclusively（根据state判断锁是否已经被持有）
+- 在抽象方法的实现过程中免不了要对同步状态进行更改，这时就需要使用同步器提供的3个方法（getState()、setState(int newState)和compareAndSetState(int expect,int update)）来进行操作，因为它们能够保证状态的改变是安全的。
+
+- 同步器依赖内部的同步队列（一个FIFO双向队列）来完成同步状态的管理，当前线程获取同步状态失败时，同步器会将当前线程以及等待状态等信息构造成为一个节点（Node）并将其加入同步队列，同时会阻塞当前线程，当同步状态释放时，会把首节点中的线程唤醒，使其再次尝试获取同步状态。
+- `AbstractQueuedSynchronizer`是一个抽象类，他采用**模板方法**的设计模式，规定了**独占**和**共享**模式需要实现的方法，并且将一些通用的功能已经进行了实现，所以不同模式的使用方式，只需要自己定义好实现共享资源的获取与释放即可，至于具体线程在等待队列中的维护（**获取资源失败入队列、唤醒出队列等**），AQS已经实现好了。
+
+###### 基本原理
+
+- cas和自旋保证只有一个线程能获得锁
+- locksupport阻塞未获得锁的线程
+
+有一个filed属性保存当前获取到锁的线程，其他线程被locksupport阻塞，用一个保证多线程安全的队列保存其他没有获得锁的线程（释放锁的时候唤醒blockingqueue中被阻塞的线程）。
 
 ##### java内存模型 #####
 
@@ -395,30 +456,6 @@ Mark Word的格式：
 | 轻量级锁 | 竞争的线程不会阻塞，提高了程序的响应速度。                   | 如果始终得不到锁竞争的线程使用自旋会消耗CPU。    | 追求响应时间。同步块执行速度非常快。 |
 | 重量级锁 | 线程竞争不使用自旋，不会消耗CPU。                            | 线程阻塞，响应时间缓慢。                         | 追求吞吐量。同步块执行时间较长。     |
 
-###### AQS ######
-
-特点：
-
-- 用 state 属性来表示资源的状态（分独占模式和共享模式），子类需要定义如何维护这个状态，控制如何获取
-  锁和释放锁
-  - getState - 获取 state 状态
-  - setState - 设置 state 状态
-  - compareAndSetState - cas 机制设置 state 状态
-- 提供了基于 FIFO 的等待队列，类似于 Monitor 的 EntryList
-- 条件变量来实现等待、唤醒机制，支持多个条件变量，类似于 Monitor 的 WaitSet
-
-子类主要实现这样一些方法（默认抛出 UnsupportedOperationException）
-
-- tryAcquire
-- tryRelease
-- tryAcquireShared
-- tryReleaseShared
-- isHeldExclusively
-
-在抽象方法的实现过程中免不了要对同步状态进行更改，这时就需要使用同步器提供的3个方法（getState()、setState(int newState)和compareAndSetState(int expect,int update)）来进行操作，因为它们能够保证状态的改变是安全的。
-
-同步器依赖内部的同步队列（一个FIFO双向队列）来完成同步状态的管理，当前线程获取同步状态失败时，同步器会将当前线程以及等待状态等信息构造成为一个节点（Node）并将其加入同步队列，同时会阻塞当前线程，当同步状态释放时，会把首节点中的线程唤醒，使其再次尝试获取同步状态。
-
 ###### Lock接口 ######
 
 ReentrantLock为实现类，底层为aqs
@@ -469,8 +506,6 @@ wait被notify唤醒之后，wait上面的代码都不会再运行（如果是for
 
   Condition 对象继承了相关的 Lock 对象的公平性，对于公平的锁，线程会按照 FIFO 顺序从 Condition.await 中释放。
 
-![image-20210108184657681](java多线程.assets/image-20210108184657681.png)
-
 ###### LockSupport ######
 
 每个线程都有一个许可（许可只能是0或1）_counter，许可被park消耗，被unpark补充。
@@ -492,9 +527,30 @@ LockSupport 定义了一组公共静态方法
   
   - unpark 函数可以先于 park 调用。比如线程 B 调用 unpark 函数，给线程 A 发了一个“许可”， 那么当线程 A 调用 park 时，它发现已经有“许可”了，那么它会马上再继续运行。
 
+###### 锁的对比
+
+两个都是可重入锁
+
+不同点
+
+| 比较方面      | SynChronized                                                 | ReentrantLock（实现了 Lock接口）                             |
+| ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 原始构成      | 它是java语言的关键字，是原生语法层面的互斥，需要jvm实现      | 它是JDK1.5之后提供的API层面的互斥锁类                        |
+| 代码编写      | 采用synchronized不需要用户去手动释放锁，当synchronized方法或者synchronized代码块执行完之后，系统会自动让线程释放对锁的占用，更安全， | 而ReentrantLock则必须要用户去手动释放锁，如果没有主动释放锁，就有可能导致出现死锁现象。需要lock()和unlock()方法配合try/finally语句块来完成， |
+| 灵活性        | 锁的范围是整个方法或synchronized块部分                       | Lock因为是方法调用，可以跨方法，灵活性更大                   |
+| 等待可中断    | 不可中断，除非抛出异常                                       | 持有锁的线程长期不释放的时候，正在等待的线程可以选择放弃等待 |
+| 是否公平锁    | 非公平锁                                                     | 两者都可以，默认公平锁，构造器可以传入boolean值，true为公平锁，false为非公平锁， |
+| 条件Condition | synchronized关键字就相当于整个 Lock 对象中只有一个Condition实例，所有的线程都注册在它一个身上 | 通过多次newCondition可以获得多个Condition对象,**线程对象可以注册在指定的`Condition`中，从而可以有选择性的进行线程通知，在调度线程上更加灵活。** |
+
 ###### 锁的优化 ######
 
 自旋锁，适应性自旋锁，锁消除，锁粗化
+
+###### Java有哪些锁
+
+```
+ReadWriteLock，ReentrantReadWriteLock
+```
 
 ##### 线程池 #####
 
@@ -502,7 +558,26 @@ LockSupport 定义了一组公共静态方法
 
 ![image-20210325101216047](java多线程.assets/image-20210325101216047.png)
 
+线程池状态变迁
 
+<img src="C:\Users\wangjingyu\AppData\Roaming\Typora\typora-user-images\image-20210524151513213.png" alt="image-20210524151513213" style="zoom: 67%;" />
+
+```java
+private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
+```
+
+用一个ctl变量记录线程池的状态和线程池的数量
+
+###### 原理
+
+内部类Worker，实现了
+
+```
+private final class Worker extends AbstractQueuedSynchronizer
+implements Runnable
+```
+
+Worker本身就是一个线程任务（implements Runnable），由线程池这个类启动，执行一个死循环的任务，不断从任务队列里去取任务执行
 
 ###### 新建 ######
 
@@ -526,8 +601,8 @@ new  ThreadPoolExecutor(参数如下);
 5. RejectedExecutionHandler（饱和策略）：当队列和线程池都满了，说明线程池处于饱和状态，那么必须采取一种策略处理提交的新任务。这个策略默认情况下是AbortPolicy，表示无法处理新任务时抛出异常。在JDK 1.5中Java线程池框架提供了以下4种策略。
 
    - AbortPolicy：直接抛出异常。
-   - CallerRunsPolicy：只用调用者所在线程来运行任务。
-   - DiscardOldestPolicy：丢弃队列里最近的一个任务，并执行当前任务。
+   - CallerRunsPolicy：由调用线程（提交任务的线程）处理该任务
+   - DiscardOldestPolicy：丢弃队列最前面的任务，然后重新提交被拒绝的任务
    - DiscardPolicy：不处理，丢弃掉。
 
    也可以根据应用场景需要来实现RejectedExecutionHandler接口自定义策略。如记录日志或持久化存储不能处理的任务。
@@ -550,7 +625,7 @@ submit()方法用于提交需要返回值的任务。线程池会返回一个fut
 
 shutdownNow首先将线程池的状态设置成STOP，然后尝试停止所有的正在执行或暂停任务的线程，并返回等待执行任务的列表，
 
-而shutdown只是将线程池的状态设置成SHUTDOWN状态，然后中断所有没有正在执行任务的线程。
+而shutdown只是将线程池的状态设置成SHUTDOWN状态，不再接受新的任务，但已有的任务会继续执行。
 
 只要调用了这两个关闭方法中的任意一个，isShutdown方法就会返回true。当所有的任务都已关闭后，才表示线程池关闭成功，这时调用isTerminaed方法会返回true。至于应该调用哪一种方法来关闭线程池，应该由提交到线程池的任务特性决定，通常调用shutdown方法来关闭线程池，如果任务不一定要执行完，则可以调用shutdownNow方法。
 
@@ -665,3 +740,49 @@ semaphore.release();
 | 不可重复利用                                                 | 可重复利用                                                   |
 
 - CyclicBarrier可以使一定数量的参与方反复地在栅栏位置汇集，它在并行迭代算法中非常有用；这种算法通常将一个问题拆分成一系列相互独立的子问题。当线程到达栅栏位置时将调用await方法，这个方法将阻塞直到所有线程都达到栅栏位置。如果所有线程都到达了栅栏位置，那么栅栏将打开，此时所有线程都被释放，而栅栏将被重置以便下次使用。
+
+#### 并发容器
+
+线程安全集合类可以分为三大类：
+
+- 遗留的线程安全集合：Hashtable ， Vector
+
+- 使用 Collections 装饰的线程安全集合，如：
+
+  - Collections.synchronizedCollection
+  - Collections.synchronizedList
+  - Collections.synchronizedMap
+  - Collections.synchronizedSet
+  - Collections.synchronizedNavigableMap
+  - Collections.synchronizedNavigableSet
+  - Collections.synchronizedSortedMap
+  - Collections.synchronizedSortedSet
+
+- java.util.concurrent.*
+
+  java.util.concurrent.* 下的线程安全集合类，可以发现它们有规律，里面包含三类关键词：Blocking、CopyOnWrite、Concurrent。
+  Blocking 大部分实现基于锁，并提供用来阻塞的方法
+  CopyOnWrite 之类容器修改开销相对较重
+  Concurrent 类型的容器内部很多操作使用 cas 优化，一般可以提供较高吞吐量，存在弱一致性问题
+
+###### CopyOnWriteArrayList ######
+
+CopyOnWrite容器即写时复制的容器。通俗的理解是当我们往一个容器添加元素的时候，不直接往当前容器添加，而是先将当前容器进行Copy，复制出一个新的容器，然后新的容器里添加元素，添加完元素之后，再将原容器的引用指向新的容器。这样做的好处是我们可以对CopyOnWrite容器进行并发的读，而不需要加锁（在添加的时候是需要加锁的），因为当前容器不会添加任何元素。所以CopyOnWrite容器也是一种读写分离的思想，读和写不同的容器。
+
+CopyOnWrite并发容器用于读多写少的并发场景。比如白名单，黑名单，商品类目的访问和更新场景
+
+注意事项
+
+-  减少扩容开销。根据实际需要，初始化CopyOnWriteMap的大小，避免写时CopyOnWriteMap扩容的开销。
+-  使用批量添加。因为每次添加，容器每次都会进行复制，所以减少添加次数，可以减少容器的复制次数。如使用上面代码里的addBlackList方法。
+
+问题
+
+- 内存占用问题。
+- 数据一致性问题。CopyOnWrite容器只能保证数据的最终一致性，不能保证数据的实时一致性。所以如果你希望写入的的数据，马上能读到，请不要使用CopyOnWrite容器。
+
+##### ConcurrentHashMap  
+
+- 在 JDK1.7 的时候，`ConcurrentHashMap`（分段锁） 对整个桶数组进行了分割分段(`Segment`，segment实现了ReentrantLock)，每一把锁只锁容器其中一部分数据，多线程访问容器里不同数据段的数据，就不会存在锁竞争，提高并发访问率。 
+- 到了 JDK1.8 的时候而是直接用 `Node` 数组+链表+红黑树的数据结构来实现，并发控制使用 `synchronized` 和 CAS 来操作。 整个看起来就像是优化过且线程安全的 `HashMap`，虽然在 JDK1.8 中还能看到 `Segment` 的数据结构，但是已经简化了属性，只是为了兼容旧版本；
+- `Hashtable` :整个数组的访问使用 `synchronized` 来保证线程安全，效率非常低下。当一个线程访问同步方法时，其他线程也访问同步方法，可能会进入阻塞或轮询状态，如使用 put 添加元素，另一个线程不能使用 put 添加元素，也不能使用 get，竞争会越来越激烈效率越低。

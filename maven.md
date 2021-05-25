@@ -24,3 +24,22 @@ maven父工程编译不会报错，用服务器直接启动不会报错
 
 使用启动类所在的模块启动：无法启动，因为他所依赖的jar包模块很可能在本地，而依赖被maven管理之后只能去仓库去找，找不到就报错。可以将相应的jar包安装到仓库中去
 
+###### packaging打包类型
+
+- ### pom
+
+  ```
+      <packaging>pom</packaging>    【父类型都为pom类型】
+  ```
+
+- ### jar
+
+  ```
+      <packaging>jar</packaging>       【内部调用或者是做服务使用】
+  ```
+
+- ### war
+
+  ```
+      <packaging>war</packaging>     【需要部署的项目】
+  ```
